@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>График отпусков 2027</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a planning sheet — summary line, year strip (Gantt), then the editable register and the entry form */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#18202c; --muted:#5d6878; --line:#dde2ea;
+  --accent:#27508f; --accent-soft:#e3ebf7; --bar:#3b6cb5; --bar-ink:#ffffff;
+  --ok:#1f7a4d; --ok-soft:#e1f2e8; --warn:#9a6200; --warn-soft:#fbefd6; --bad:#b3261e; --bad-soft:#fbe3e1;
+  --weekend:#eef1f5; --holiday:#f6e3e1;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161d; --surface:#1a2029; --ink:#e6eaf1; --muted:#98a3b3; --line:#2c3441;
+  --accent:#8fb3ec; --accent-soft:#223350; --bar:#5d8ad0; --bar-ink:#0e1420;
+  --ok:#6fd19c; --ok-soft:#173326; --warn:#f0bc5e; --warn-soft:#3a2d12; --bad:#ff8a80; --bad-soft:#40201e;
+  --weekend:#1e252f; --holiday:#3a2324; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161d; --surface:#1a2029; --ink:#e6eaf1; --muted:#98a3b3; --line:#2c3441;
+  --accent:#8fb3ec; --accent-soft:#223350; --bar:#5d8ad0; --bar-ink:#0e1420;
+  --ok:#6fd19c; --ok-soft:#173326; --warn:#f0bc5e; --warn-soft:#3a2d12; --bad:#ff8a80; --bad-soft:#40201e;
+  --weekend:#1e252f; --holiday:#3a2324; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:28px 56px;display:flex;flex-direction:column;gap:28px}
+h1{font-family:var(--f-display);font-weight:600;font-size:clamp(1.5rem,3.4vw,2.2rem);letter-spacing:-.01em;margin:0;text-wrap:balance}
+h2{font-size:1.05rem;font-weight:600;margin:0}
+.eyebrow{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
+.lead{color:var(--muted);max-width:62ch;margin:6px 0 0}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:.82rem;font-weight:500;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.warn{background:var(--warn-soft);color:var(--warn)}
+.notice{padding:10px 14px;border-radius:8px;background:var(--warn-soft);color:var(--warn);font-size:.9rem}
+
+section{display:flex;flex-direction:column;gap:12px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+
+/* Year strip */
+.gantt-scroll{overflow-x:auto}
+.gantt{min-width:880px;display:grid;grid-template-columns:200px 1fr}
+.g-months{display:grid;grid-template-columns:repeat(12,1fr);border-bottom:1px solid var(--line)}
+.g-months div{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 6px;border-left:1px solid var(--line);font-weight:600}
+.g-name{padding:8px 12px;border-top:1px solid var(--line);font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-name small{display:block;color:var(--muted);font-size:.75rem}
+.g-track{position:relative;border-top:1px solid var(--line);min-height:48px;background:
+  repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/12 - 1px),var(--line) calc(100%/12 - 1px),var(--line) calc(100%/12))}
+.g-bar{position:absolute;top:10px;bottom:10px;border-radius:5px;background:var(--bar);color:var(--bar-ink);font-size:.72rem;font-family:var(--f-mono);display:flex;align-items:center;padding:0 6px;white-space:nowrap;overflow:hidden;min-width:6px;cursor:pointer;border:0}
+.g-bar.conflict{background:var(--bad);color:#fff}
+.g-bar:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.g-empty{grid-column:1/-1;padding:28px 16px;color:var(--muted);text-align:center;border-top:1px solid var(--line)}
+
+/* Form */
+form.panel{padding:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px 16px;align-items:end}
+label{display:flex;flex-direction:column;gap:5px;font-size:.8rem;font-weight:600;color:var(--muted);min-width:0}
+input,select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 10px;width:100%;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.form-foot{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.calc{font-family:var(--f-mono);font-size:.85rem;color:var(--muted)}
+.msg{grid-column:1/-1;font-size:.9rem;border-radius:8px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.msg.bad{background:var(--bad-soft);color:var(--bad)} .msg.ok{background:var(--ok-soft);color:var(--ok)} .msg.warn{background:var(--warn-soft);color:var(--warn)}
+button{font:inherit;font-size:.9rem;font-weight:600;border-radius:7px;padding:9px 16px;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:var(--surface)}
+button.ghost{background:transparent;color:var(--accent)}
+button.small{padding:5px 10px;font-size:.8rem}
+button.danger{border-color:var(--bad);color:var(--bad);background:transparent}
+button.danger.armed{background:var(--bad);color:#fff}
+button:disabled{opacity:.45;cursor:not-allowed}
+
+/* Register */
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:1040px;font-size:.9rem}
+th{text-align:left;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tr.editing td{background:var(--accent-soft)}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.muted{color:var(--muted)}
+.actions{display:flex;gap:6px;justify-content:flex-end}
+.status{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.foot-note{font-size:.82rem;color:var(--muted);max-width:80ch}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:-12px}
+label.inline{flex-direction:row;align-items:center;gap:10px;font-size:.85rem}
+label.inline select{width:auto;min-width:160px}
+.remind{display:flex;flex-direction:column}
+.r-item{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:.92rem}
+.r-item.due{background:var(--ok-soft)}
+.r-note{margin:0;padding:10px 16px}
+a.btn{display:inline-flex;align-items:center;font-weight:600;font-size:.8rem;padding:5px 10px;border-radius:7px;background:var(--ok);color:var(--surface);text-decoration:none}
+a.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (max-width:560px){.gantt{grid-template-columns:130px 1fr}}
+@media (prefers-reduced-motion:no-preference){.g-bar{transition:filter .15s}.g-bar:hover{filter:brightness(1.08)}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Кадровый план · 01.01.2027 – 31.12.2027</div>
+      <h1>График отпусков 2027</h1>
+      <p class="lead">Отпуска могут пересекаться: график сохранит любые даты, а пересечения подсветит красным, чтобы их было легко найти и перенести. У каждого отпускника есть замещающий, который в это время сам на работе.</p>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="notice" id="storeNotice" hidden></div>
+
+  <section>
+    <div class="sec-head"><h2>Уведомления в WhatsApp</h2><span class="muted" style="font-size:.85rem">За 5 дней до начала отпуска · номер <span class="num" id="waNum">8 771 975 82 49</span></span></div>
+    <div class="panel remind" id="remind"></div>
+  </section>
+
+  <div class="toolbar">
+    <label class="inline">АТС<select id="filterAts"></select></label>
+  </div>
+
+  <section>
+    <div class="sec-head"><h2>Год на одной линии</h2><span class="muted" style="font-size:.85rem">Нажмите на полосу, чтобы изменить отпуск</span></div>
+    <div class="panel gantt-scroll"><div class="gantt" id="gantt"></div></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2 id="formTitle">Добавить отпуск</h2></div>
+    <form class="panel" id="form" novalidate>
+      <label>ФИО<input id="f-name" autocomplete="off" placeholder="Фамилия Имя Отчество" required></label>
+      <label>Должность<input id="f-pos" autocomplete="off" placeholder="Например, бухгалтер" required></label>
+      <label>АТС<input id="f-ats" list="atsList" autocomplete="off" placeholder="Например, АТС-1"><datalist id="atsList"></datalist></label>
+      <label>Начало отпуска<input id="f-start" type="date" min="2027-01-01" max="2027-12-31" required></label>
+      <label>Дней (календарных)<input id="f-days" type="number" min="1" max="120" value="28" required></label>
+      <label>Окончание<input id="f-end" type="date" min="2027-01-01" max="2027-12-31" required></label>
+      <label>Замещающий<select id="f-sub"></select></label>
+      <div class="msg" id="formMsg" hidden></div>
+      <div class="form-foot">
+        <button type="submit" id="saveBtn">Сохранить</button>
+        <button type="button" class="ghost" id="cancelBtn" hidden>Отмена</button>
+        <button type="button" class="ghost" id="nextFreeBtn">Первая свободная дата</button>
+        <span class="calc" id="calc"></span>
+      </div>
+    </form>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Список сотрудников</h2>
+      <div class="actions"><button type="button" class="ghost small" id="csvBtn" hidden>Скачать для Excel (CSV)</button><button type="button" class="ghost small" id="backupBtn">Сохранить копию</button><button type="button" class="ghost small" id="restoreBtn">Загрузить копию</button><input type="file" id="restoreFile" accept=".json,application/json" hidden></div>
+    </div>
+    <div class="panel table-scroll">
+      <table>
+        <thead><tr><th>№</th><th>ФИО</th><th>Должность</th><th>АТС</th><th>Период</th><th>Дней</th><th>Уведомить</th><th>Замещающий</th><th>Проверка</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="foot-note">Данные хранятся в этом браузере на этом компьютере. Чтобы перенести график на другой компьютер или не потерять его, нажмите «Сохранить копию», а на новом месте — «Загрузить копию». «Дней» — все календарные дни периода, праздничные дни тоже входят в отпуск. «Уведомить» — дата за 5 дней до начала отпуска.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  const WA_NUMBER="77719758249"; // 8 771 975 82 49 в международном формате
+  const NOTICE_DAYS=5;
+  const YEAR_START=Date.UTC(2027,0,1), YEAR_END=Date.UTC(2027,11,31), DAY=86400000;
+  const MONTHS=["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+
+  const $=id=>document.getElementById(id);
+  const toT=s=>{const [y,m,d]=s.split("-").map(Number);return Date.UTC(y,m-1,d)};
+  const toS=t=>new Date(t).toISOString().slice(0,10);
+  const fmt=s=>{const [y,m,d]=s.split("-");return d+"."+m+"."+y};
+  const fmtShort=s=>{const [,m,d]=s.split("-");return d+"."+m};
+  const daysBetween=(a,b)=>Math.round((toT(b)-toT(a))/DAY)+1;
+  const noticeDate=r=>toS(toT(r.start)-NOTICE_DAYS*DAY);
+  const todayS=()=>{const n=new Date();return toS(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate()))};
+  let atsFilter="";
+  const overlap=(a,b)=>a.start<=b.end && b.start<=a.end;
+  const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const dayWord=n=>{const a=n%10,b=n%100;if(a===1&&b!==11)return"день";if(a>=2&&a<=4&&(b<12||b>14))return"дня";return"дней"};
+
+  let rows=[];            // {id,name,position,start,end,subId}
+  let editingId=null;
+  let col=null;           // db collection or null
+  let readOnly=false;
+  let localMode=false;
+
+  const sorted=()=>rows.slice().sort((a,b)=>a.start.localeCompare(b.start)||a.name.localeCompare(b.name));
+  const view=()=>sorted().filter(r=>!atsFilter || (r.ats||"")===atsFilter);
+  const atsValues=()=>[...new Set(rows.map(r=>(r.ats||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ru",{numeric:true}));
+
+  function renderAts(){
+    const vals=atsValues();
+    if(atsFilter && !vals.includes(atsFilter)) atsFilter="";
+    const sel=$("filterAts");
+    sel.innerHTML='<option value="">Все АТС</option>'+vals.map(v=>'<option value="'+esc(v)+'">'+esc(v)+' ('+rows.filter(r=>r.ats===v).length+')</option>').join("")+
+      (rows.some(r=>!r.ats)?'':'');
+    sel.value=atsFilter;
+    $("atsList").innerHTML=vals.map(v=>'<option value="'+esc(v)+'"></option>').join("");
+  }
+  $("filterAts").addEventListener("change",e=>{atsFilter=e.target.value;render();});
+
+  function waText(r){
+    const sub=byId(r.subId);
+    return "Напоминание: через "+NOTICE_DAYS+" дней, с "+fmt(r.start)+", уходит в отпуск "+r.name+
+      " ("+r.position+(r.ats?", "+r.ats:"")+") на "+daysBetween(r.start,r.end)+" "+dayWord(daysBetween(r.start,r.end))+
+      ", по "+fmt(r.end)+". Замещающий: "+(sub?sub.name:"не назначен")+".";
+  }
+  const waLink=r=>"https://wa.me/"+WA_NUMBER+"?text="+encodeURIComponent(waText(r));
+
+  function renderRemind(){
+    const today=todayS();
+    const list=view().filter(r=>r.start>=today).sort((a,b)=>a.start.localeCompare(b.start));
+    const due=list.filter(r=>noticeDate(r)<=today && !r.notified);
+    const upcoming=list.filter(r=>noticeDate(r)>today).slice(0,3);
+    let h="";
+    if(due.length){
+      h+=due.map(r=>'<div class="r-item due"><div><strong>'+esc(r.name)+'</strong> уходит в отпуск '+fmt(r.start)+'. Пора отправить уведомление.</div>'+
+        '<div class="actions"><a class="btn small" href="'+esc(waLink(r))+'" target="_blank" rel="noopener">Открыть WhatsApp</a>'+
+        (readOnly?'':'<button type="button" class="ghost small" data-sent="'+esc(r.id)+'">Отметить отправленным</button>')+'</div></div>').join("");
+    }
+    if(upcoming.length){
+      h+=upcoming.map(r=>{const n=Math.round((toT(noticeDate(r))-toT(today))/DAY);
+        return '<div class="r-item"><div><span class="num">'+fmt(noticeDate(r))+'</span> · '+esc(r.name)+', отпуск с '+fmt(r.start)+'</div><span class="muted">через '+n+' '+dayWord(n)+'</span></div>';}).join("");
+    }
+    if(!h) h='<div class="r-item muted">Предстоящих отпусков нет.</div>';
+    $("remind").innerHTML=h+'<p class="foot-note r-note">Страница не может отправлять сообщения сама. Когда подходит дата, здесь появляется кнопка: она открывает WhatsApp с готовым текстом на номер 8 771 975 82 49.</p>';
+  }
+  const byId=id=>rows.find(r=>r.id===id);
+
+  function problems(r){
+    const out=[];
+    rows.forEach(o=>{ if(o.id!==r.id && overlap(r,o)) out.push({kind:"bad",text:"Пересекается с: "+o.name}); });
+    if(!r.subId) out.push({kind:"warn",text:"Не назначен замещающий"});
+    else{
+      const s=byId(r.subId);
+      if(!s) out.push({kind:"warn",text:"Замещающий удалён из списка"});
+      else if(overlap(r,s)) out.push({kind:"bad",text:"Замещающий сам в отпуске"});
+    }
+    return out;
+  }
+
+  // Earliest start >= from where a period of `len` days fits without touching anyone else's period
+  function nextFree(fromS,len,ignoreId){
+    const others=rows.filter(o=>o.id!==ignoreId).map(o=>({s:toT(o.start),e:toT(o.end)})).sort((a,b)=>a.s-b.s);
+    let t=Math.max(toT(fromS||"2027-01-01"),YEAR_START);
+    let moved=true;
+    while(moved){
+      moved=false;
+      for(const o of others){
+        const end=t+(len-1)*DAY;
+        if(t<=o.e && o.s<=end){t=o.e+DAY;moved=true;}
+      }
+    }
+    return (t+(len-1)*DAY<=YEAR_END)?toS(t):null;
+  }
+
+  /* ---------- rendering ---------- */
+  function renderStats(){
+    const conflicts=rows.filter(r=>problems(r).some(p=>p.kind==="bad")).length;
+    const noSub=rows.filter(r=>problems(r).some(p=>p.kind==="warn")).length;
+    const booked=rows.reduce((n,r)=>n+daysBetween(r.start,r.end),0);
+    let h='<span class="pill">Сотрудников: '+rows.length+'</span>';
+    h+='<span class="pill">Занято дней года: '+booked+' из 365</span>';
+    h+= conflicts?'<span class="pill bad">Пересечений: '+conflicts+'</span>':'<span class="pill ok">Пересечений нет</span>';
+    if(noSub) h+='<span class="pill warn">Без замены: '+noSub+'</span>';
+    $("stats").innerHTML=h;
+  }
+
+  function renderGantt(){
+    let h='<div class="g-name" style="border-top:0"></div><div class="g-months">'+MONTHS.map(m=>'<div>'+m+'</div>').join("")+'</div>';
+    const list=view();
+    if(!list.length){ h+='<div class="g-empty">'+(atsFilter?'В этой АТС пока нет отпусков.':'Пока нет ни одного отпуска. Добавьте первого сотрудника в форме ниже.')+'</div>'; }
+    list.forEach(r=>{
+      const left=(toT(r.start)-YEAR_START)/DAY/365*100;
+      const width=daysBetween(r.start,r.end)/365*100;
+      const bad=problems(r).some(p=>p.kind==="bad");
+      const sub=byId(r.subId);
+      const tip=r.name+": "+fmt(r.start)+" – "+fmt(r.end)+(sub?" · замещает "+sub.name:"");
+      h+='<div class="g-name" title="'+esc(r.name)+'">'+esc(r.name)+'<small>'+esc(r.position)+(r.ats?' · '+esc(r.ats):'')+'</small></div>';
+      h+='<div class="g-track"><button type="button" class="g-bar'+(bad?' conflict':'')+'" data-edit="'+esc(r.id)+'" title="'+esc(tip)+'" style="left:'+left+'%;width:'+width+'%">'+fmtShort(r.start)+'–'+fmtShort(r.end)+'</button></div>';
+    });
+    $("gantt").innerHTML=h;
+  }
+
+  function renderTable(){
+    const list=view();
+    if(!list.length){ $("tbody").innerHTML='<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">Список пуст.</td></tr>'; return; }
+    $("tbody").innerHTML=list.map((r,i)=>{
+      const cal=daysBetween(r.start,r.end);
+      const sub=byId(r.subId);
+      const pr=problems(r);
+      const st=pr.length?pr.map(p=>'<span class="pill '+p.kind+'">'+esc(p.text)+'</span>').join(""):'<span class="pill ok">Всё в порядке</span>';
+      const act=readOnly?'':'<div class="actions"><button type="button" class="ghost small" data-edit="'+esc(r.id)+'">Изменить</button><button type="button" class="danger small" data-del="'+esc(r.id)+'">Удалить</button></div>';
+      return '<tr'+(r.id===editingId?' class="editing"':'')+'><td class="num muted">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.position)+'</td>'+
+        '<td>'+(r.ats?esc(r.ats):'<span class="muted">—</span>')+'</td>'+
+        '<td class="num">'+fmt(r.start)+' – '+fmt(r.end)+'</td><td class="num">'+cal+'</td>'+
+        '<td class="num">'+fmt(noticeDate(r))+(r.notified?' <span class="pill ok">отправлено</span>':'')+'</td>'+
+        '<td>'+(sub?esc(sub.name):'<span class="muted">—</span>')+'</td><td><div class="status">'+st+'</div></td><td>'+act+'</td></tr>';
+    }).join("");
+  }
+
+  function renderSubOptions(){
+    const sel=$("f-sub"), cur=sel.value;
+    const probe=draft();
+    const opts=sorted().filter(r=>r.id!==editingId).map(r=>{
+      const busy=probe&&overlap(probe,r);
+      return '<option value="'+esc(r.id)+'"'+(busy?' disabled':'')+'>'+esc(r.name)+(busy?' — в отпуске в эти даты':'')+'</option>';
+    });
+    sel.innerHTML='<option value="">— выберите сотрудника —</option>'+opts.join("");
+    if(cur && [...sel.options].some(o=>o.value===cur && !o.disabled)) sel.value=cur;
+  }
+
+  let render=function(){ renderAts(); renderStats(); renderRemind(); renderGantt(); renderTable(); renderSubOptions(); updateCalc(); applyReadOnly(); };
+
+  /* ---------- form ---------- */
+  function draft(){
+    const s=$("f-start").value, e=$("f-end").value;
+    if(!s||!e||e<s) return null;
+    return {id:editingId,start:s,end:e};
+  }
+  function updateCalc(){
+    const d=draft();
+    if(!d){$("calc").textContent="";return;}
+    const cal=daysBetween(d.start,d.end);
+    $("calc").textContent=cal+" "+dayWord(cal)+" · уведомление "+fmt(noticeDate(d));
+  }
+  function showMsg(kind,html){ const m=$("formMsg"); m.className="msg "+kind; m.innerHTML=html; m.hidden=false; }
+  function clearMsg(){ $("formMsg").hidden=true; }
+
+  function syncEndFromDays(){
+    const s=$("f-start").value, n=parseInt($("f-days").value,10);
+    if(s && n>0){ $("f-end").value=toS(toT(s)+(n-1)*DAY); }
+  }
+  function syncDaysFromEnd(){
+    const s=$("f-start").value, e=$("f-end").value;
+    if(s && e && e>=s) $("f-days").value=daysBetween(s,e);
+  }
+  $("f-start").addEventListener("change",()=>{syncEndFromDays();liveCheck();});
+  $("f-days").addEventListener("input",()=>{syncEndFromDays();liveCheck();});
+  $("f-end").addEventListener("change",()=>{syncDaysFromEnd();liveCheck();});
+
+  function liveCheck(){
+    updateCalc(); renderSubOptions();
+    const d=draft(); if(!d){clearMsg();return;}
+    const clash=rows.filter(o=>o.id!==editingId && overlap(d,o));
+    if(clash.length){
+      const len=daysBetween(d.start,d.end), nf=nextFree(d.start,len,editingId);
+      showMsg("warn","Пересечение с: "+clash.map(c=>esc(c.name)+" ("+fmt(c.start)+" – "+fmt(c.end)+")").join(", ")+". Сохранить можно, но если нужно без пересечения:"+
+        (nf?' <button type="button" class="small" data-move="'+nf+'">Перенести на '+fmt(nf)+'</button>':" свободного окна такой длины до конца года нет."));
+    } else clearMsg();
+  }
+
+  function fillForm(r){
+    editingId=r?r.id:null;
+    $("f-name").value=r?r.name:""; $("f-pos").value=r?r.position:""; $("f-ats").value=r?(r.ats||""):"";
+    $("f-start").value=r?r.start:""; $("f-end").value=r?r.end:"";
+    $("f-days").value=r?daysBetween(r.start,r.end):28;
+    $("formTitle").textContent=r?"Изменить отпуск: "+r.name:"Добавить отпуск";
+    $("saveBtn").textContent=r?"Сохранить изменения":"Сохранить";
+    $("cancelBtn").hidden=!r;
+    render();
+    if(r) $("f-sub").value=r.subId||"";
+    clearMsg();
+  }
+
+  $("nextFreeBtn").addEventListener("click",()=>{
+    const len=parseInt($("f-days").value,10)||28;
+    const from=$("f-start").value||"2027-01-01";
+    const nf=nextFree(from,len,editingId) || nextFree("2027-01-01",len,editingId);
+    if(!nf){showMsg("warn","В 2027 году не осталось свободного окна на "+len+" "+dayWord(len)+". Сократите длительность.");return;}
+    $("f-start").value=nf; syncEndFromDays(); liveCheck();
+    showMsg("ok","Свободно с "+fmt(nf)+" по "+fmt($("f-end").value)+".");
+  });
+  $("cancelBtn").addEventListener("click",()=>fillForm(null));
+
+  $("form").addEventListener("submit",async e=>{
+    e.preventDefault();
+    if(readOnly) return;
+    const name=$("f-name").value.trim(), position=$("f-pos").value.trim();
+    const start=$("f-start").value, end=$("f-end").value, subId=$("f-sub").value;
+    if(!name||!position){showMsg("bad","Заполните ФИО и должность.");return;}
+    if(!start||!end){showMsg("bad","Укажите дату начала и длительность.");return;}
+    if(start<"2027-01-01"||end>"2027-12-31"){showMsg("bad","Отпуск должен целиком помещаться в 2027 год.");return;}
+    if(end<start){showMsg("bad","Дата окончания раньше даты начала.");return;}
+    const d={id:editingId,start,end};
+    const clashNames=rows.filter(o=>o.id!==editingId && overlap(d,o)).map(o=>o.name);
+    if(subId){const s=byId(subId); if(s&&overlap(d,s)){showMsg("bad","Замещающий в эти даты сам в отпуске. Выберите другого.");return;}}
+    const prev=editingId?byId(editingId):null;
+    const body={name,position,ats:$("f-ats").value.trim(),start,end,subId:subId||"",notified:!!(prev&&prev.notified&&prev.start===start)};
+    $("saveBtn").disabled=true;
+    try{
+      if(col){
+        if(editingId) await col.doc(editingId).set(body); else await col.add(body);
+      }else{
+        if(editingId){Object.assign(byId(editingId),body);} else rows.push({id:"l"+Date.now(),...body});
+      }
+      const wasEdit=!!editingId;
+      fillForm(null);
+      showMsg("ok",wasEdit?"Изменения сохранены.":"Отпуск добавлен: "+esc(name)+", "+fmt(start)+" – "+fmt(end)+".");
+      const notes=[];
+      if(clashNames.length) notes.push("пересекается с: "+clashNames.map(esc).join(", ")+". Даты можно поменять через «Изменить» или нажав на полосу");
+      if(!subId) notes.push("замещающий не назначен");
+      if(notes.length) showMsg("warn","Сохранено. Обратите внимание: "+notes.join("; ")+".");
+    }catch(err){
+      if(err&&err.code==="invalid_argument"){readOnly=true;render();showMsg("bad","У вас нет прав на изменение этого графика. Попросите владельца дать доступ «Contributor» или выше.");}
+      else showMsg("bad","Не удалось сохранить. Проверьте соединение и попробуйте ещё раз.");
+    }finally{$("saveBtn").disabled=readOnly;}
+  });
+
+  /* ---------- clicks ---------- */
+  let armedDel=null, armTimer=null;
+  document.addEventListener("click",async e=>{
+    const ed=e.target.closest("[data-edit]");
+    if(ed){ if(readOnly) return; fillForm(byId(ed.dataset.edit)); $("form").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"center"}); return; }
+    const mv=e.target.closest("[data-move]");
+    if(mv){ $("f-start").value=mv.dataset.move; syncEndFromDays(); liveCheck(); showMsg("ok","Перенесено: "+fmt($("f-start").value)+" – "+fmt($("f-end").value)+". Нажмите «Сохранить»."); return; }
+    const sent=e.target.closest("[data-sent]");
+    if(sent){
+      const id=sent.dataset.sent;
+      try{ if(col) await col.doc(id).update({notified:true}); else { byId(id).notified=true; render(); } }
+      catch(err){ showMsg("bad","Не удалось отметить. Попробуйте ещё раз."); }
+      return;
+    }
+    const del=e.target.closest("[data-del]");
+    if(del){
+      const id=del.dataset.del;
+      if(armedDel!==id){
+        armedDel=id; del.classList.add("armed"); del.textContent="Точно удалить?";
+        clearTimeout(armTimer); armTimer=setTimeout(()=>{armedDel=null;renderTable();},4000); return;
+      }
+      armedDel=null; clearTimeout(armTimer);
+      try{
+        if(col) await col.doc(id).delete(); else rows=rows.filter(r=>r.id!==id);
+        if(editingId===id) fillForm(null);
+        // clear references where the deleted person was a substitute
+        const refs=rows.filter(r=>r.subId===id);
+        for(const r of refs){ if(col) await col.doc(r.id).update({subId:""}); else r.subId=""; }
+        render();
+      }catch(err){ showMsg("bad","Не удалось удалить. Попробуйте ещё раз."); }
+    }
+  });
+
+  function applyReadOnly(){
+    ["f-name","f-pos","f-ats","f-start","f-days","f-end","f-sub","saveBtn","nextFreeBtn"].forEach(id=>{$(id).disabled=readOnly;});
+  }
+
+  /* ---------- CSV export ---------- */
+  $("csvBtn").addEventListener("click",async()=>{
+    const head=["№","ФИО","Должность","АТС","Начало","Окончание","Календарных дней","Уведомить","Замещающий"];
+    const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+    const lines=[head.map(q).join(";")].concat(view().map((r,i)=>{
+      const cal=daysBetween(r.start,r.end), sub=byId(r.subId);
+      return [i+1,r.name,r.position,r.ats||"",fmt(r.start),fmt(r.end),cal,fmt(noticeDate(r)),sub?sub.name:""].map(q).join(";");
+    }));
+    saveFile("grafik-otpuskov-2027.csv",new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"}));
+  });
+
+  /* ---------- boot: данные хранятся в этом браузере ---------- */
+  const KEY="grafik-otpuskov-2027";
+  const SAMPLE=[
+    {id:"e1",name:"Ахметов Ерлан Серикович (пример)",position:"Главный бухгалтер",ats:"АТС-1",start:"2027-01-11",end:"2027-02-07",subId:"e2"},
+    {id:"e2",name:"Сейтказиева Динара Маратовна (пример)",position:"Бухгалтер",ats:"АТС-1",start:"2027-02-08",end:"2027-03-07",subId:"e1"},
+    {id:"e3",name:"Иванова Ольга Петровна (пример)",position:"Менеджер по персоналу",ats:"АТС-2",start:"2027-03-09",end:"2027-04-07",subId:"e4"},
+    {id:"e4",name:"Нурланов Асет Каиргалиевич (пример)",position:"Юрист",ats:"АТС-2",start:"2027-04-12",end:"2027-05-09",subId:"e3"},
+    {id:"e5",name:"Ким Виктория Александровна (пример)",position:"Экономист",ats:"АТС-3",start:"2027-06-01",end:"2027-06-30",subId:"e6"},
+    {id:"e6",name:"Жумабеков Марат Ерланович (пример)",position:"Специалист по закупкам",ats:"АТС-3",start:"2027-07-01",end:"2027-07-28",subId:"e5"},
+    {id:"e7",name:"Смагулова Айгерим Нуриковна (пример)",position:"Офис-менеджер",ats:"АТС-4",start:"2027-08-02",end:"2027-08-29",subId:"e8"},
+    {id:"e8",name:"Петров Сергей Николаевич (пример)",position:"Инженер",ats:"АТС-4",start:"2027-09-06",end:"2027-10-03",subId:"e7"}
+  ];
+  let storageOk=true;
+  function persist(){ try{ localStorage.setItem(KEY,JSON.stringify(rows)); }catch(_){ storageOk=false; } }
+  try{
+    const raw=localStorage.getItem(KEY);
+    rows=raw?JSON.parse(raw):SAMPLE.map(r=>({...r}));
+  }catch(_){ storageOk=false; rows=SAMPLE.map(r=>({...r})); }
+  const baseRender=render;
+  render=function(){ baseRender(); persist(); };
+  render();
+  $("csvBtn").hidden=false;
+  if(!storageOk){
+    $("storeNotice").textContent="Браузер не даёт сохранять данные (например, в режиме инкогнито). Изменения пропадут после закрытия страницы — сохраняйте резервную копию.";
+    $("storeNotice").hidden=false;
+  }
+
+  function saveFile(name,blob){
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+  $("backupBtn").addEventListener("click",()=>saveFile("grafik-otpuskov-2027-kopiya.json",new Blob([JSON.stringify(rows,null,2)],{type:"application/json"})));
+  $("restoreBtn").addEventListener("click",()=>$("restoreFile").click());
+  $("restoreFile").addEventListener("change",e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        const data=JSON.parse(rd.result);
+        if(!Array.isArray(data)||!data.every(r=>r&&r.id&&r.name&&r.start&&r.end)) throw 0;
+        rows=data; editingId=null; fillForm(null); showMsg("ok","Загружено записей: "+rows.length+".");
+      }catch(_){ showMsg("bad","Не удалось прочитать файл. Выберите резервную копию, сохранённую кнопкой «Сохранить копию»."); }
+      e.target.value="";
+    };
+    rd.readAsText(f);
+  });
+})();
+</script>
+</body>
+</html>
